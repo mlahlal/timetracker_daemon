@@ -3,14 +3,31 @@ package main
 import (
 	"fmt"
 	"time"
+	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"strings"
 	"database/sql"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const bufferSize = 10
+var funcBuffer []func()
+
 func main() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	go func(){
+		<-sigs
+		fmt.Println("Aborting...")
+		for _, cmd := range funcBuffer {
+			cmd()
+		}
+		os.Exit(1)
+	}()
+
 	GetAll()
 	TrackTime()
 }
@@ -32,22 +49,35 @@ func GetActiveWindow() (string, error) {
 	return res[len(res)-2], nil
 }
 
-func SaveUsage(program string, time float64) {
-	db, err := sql.Open("sqlite3", "./timetracker.db")
-	if err != nil {
-		panic(err)
+func SaveBuffer(function func()) {
+	funcBuffer = append(funcBuffer, function)
+
+	if len(funcBuffer) >= bufferSize {
+		for _, cmd := range funcBuffer {
+			cmd()
+		}
+		funcBuffer = funcBuffer[:0]
 	}
+}
 
-	defer db.Close()
+func SaveUsage(program string, time float64) func() {
+	return func() {
+		db, err := sql.Open("sqlite3", "./timetracker.db")
+		if err != nil {
+			panic(err)
+		}
 
-	_, err = db.Exec("insert or ignore into programs (program) values (?)", program)
-	if err != nil {
-		panic(err)
-	}
+		defer db.Close()
 
-	_, err = db.Exec("update programs set time = time + ? where program = ?", time, program)
-	if err != nil {
-		panic(err)
+		_, err = db.Exec("insert or ignore into programs (program) values (?)", program)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = db.Exec("update programs set time = time + ? where program = ?", time, program)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -98,7 +128,7 @@ func TrackTime() {
 
 		if len(currentWindow) > 0 {
 			if len(lastWindow) > 0 {
-				SaveUsage(lastWindow, float64(currentTime - lastTime))
+				SaveBuffer(SaveUsage(lastWindow, float64(currentTime - lastTime)))
 			}
 			lastWindow = currentWindow
 			lastTime = currentTime
@@ -116,7 +146,7 @@ func CreateDatabase() {
 
 	defer db.Close()
 
-	_, err := db.Exec("create table programs ( program varchar(255) primary key, time int default 0); )")
+	_, err = db.Exec("create table programs ( program varchar(255) primary key, time int default 0); )")
 	if err != nil {
 		panic(err)
 	}
