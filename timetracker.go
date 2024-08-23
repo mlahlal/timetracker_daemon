@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 	"os"
 	"os/exec"
@@ -28,6 +29,7 @@ func main() {
 		os.Exit(1)
 	}()
 
+	//CreateDatabase()
 	GetAll()
 	TrackTime()
 }
@@ -60,7 +62,7 @@ func SaveBuffer(function func()) {
 	}
 }
 
-func SaveUsage(program string, time float64) func() {
+func SaveUsage(program string, spentTime float64) func() {
 	return func() {
 		db, err := sql.Open("sqlite3", "./timetracker.db")
 		if err != nil {
@@ -69,12 +71,14 @@ func SaveUsage(program string, time float64) func() {
 
 		defer db.Close()
 
-		_, err = db.Exec("insert or ignore into programs (program) values (?)", program)
+		today := time.Now().Format("2006-01-02")
+
+		_, err = db.Exec("insert or ignore into programs (program, day) values (?, ?)", program, today)
 		if err != nil {
 			panic(err)
 		}
 
-		_, err = db.Exec("update programs set time = time + ? where program = ?", time, program)
+		_, err = db.Exec("update programs set time = time + ? where program = ? AND day = ?", spentTime, program, today)
 		if err != nil {
 			panic(err)
 		}
@@ -98,13 +102,14 @@ func GetAll() {
 
 	for rows.Next() {
 		var program string
+		var day string
 		var time float64
-		err = rows.Scan(&program, &time)
+		err = rows.Scan(&program, &day, &time)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println(program, time)
+		fmt.Println(program, day, time)
 	}
 
 	err = rows.Err()
@@ -123,7 +128,7 @@ func TrackTime() {
 		currentTime := time.Now().Unix()
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		if len(currentWindow) > 0 {
@@ -146,7 +151,7 @@ func CreateDatabase() {
 
 	defer db.Close()
 
-	_, err = db.Exec("create table programs ( program varchar(255) primary key, time int default 0); )")
+	_, err = db.Exec("create table programs ( program varchar(255) primary key, day date, time int default 0);")
 	if err != nil {
 		panic(err)
 	}
