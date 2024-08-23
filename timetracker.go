@@ -12,6 +12,8 @@ import (
 	"database/sql"
 
 	_ "github.com/mattn/go-sqlite3"
+	//"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 const bufferSize = 10
@@ -28,6 +30,11 @@ func main() {
 		}
 		os.Exit(1)
 	}()
+
+	/*err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}*/
 
 	//CreateDatabase()
 	GetAll()
@@ -64,7 +71,7 @@ func SaveBuffer(function func()) {
 
 func SaveUsage(program string, spentTime float64) func() {
 	return func() {
-		db, err := sql.Open("sqlite3", "./timetracker.db")
+		db, err := sql.Open("sqlite3", os.Getenv("DB_PATH"))
 		if err != nil {
 			panic(err)
 		}
@@ -86,7 +93,7 @@ func SaveUsage(program string, spentTime float64) func() {
 }
 
 func GetAll() {
-	db, err := sql.Open("sqlite3", "./timetracker.db")
+	db, err := sql.Open("sqlite3", os.Getenv("DB_PATH"))
 	if err != nil {
 		panic(err)
 	}
