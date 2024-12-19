@@ -13,7 +13,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"io/ioutil"
+//	"io/ioutil"
 
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/joho/godotenv/autoload"
@@ -223,9 +223,9 @@ func SyncData() {
 
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
+	//body, err := ioutil.ReadAll(res.Body)
 
-	bodyString := string(body)
+//	bodyString := string(body)
 	//fmt.Println(bodyString)
 }
 
